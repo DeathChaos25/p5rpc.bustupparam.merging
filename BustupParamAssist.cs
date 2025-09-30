@@ -19,11 +19,118 @@ public class BustupParamAssistEntry
     {
         return $"b_{MajorID:D4}_{MinorID:D3} -> type {Flags:D2} (Base:({BasePos_X}, {BasePos_Y}) Eye:({EyePos_X}, {EyePos_Y}) Mouth:({MouthPos_X}, {MouthPos_Y}))";
     }
+
+    public bool ValuesEqual(BustupParamAssistEntry other)
+    {
+        if (other == null) return false;
+
+        return MajorID == other.MajorID &&
+               MinorID == other.MinorID &&
+               BasePos_X == other.BasePos_X &&
+               BasePos_Y == other.BasePos_Y &&
+               EyePos_X == other.EyePos_X &&
+               EyePos_Y == other.EyePos_Y &&
+               MouthPos_X == other.MouthPos_X &&
+               MouthPos_Y == other.MouthPos_Y &&
+               Flags == other.Flags;
+    }
 }
 
 public static class BustupParamAssist
 {
-    public static List<BustupParamAssistEntry> ReadBustupParamAssistFile(string filePath)
+    private static List<BustupParamAssistEntry> _originalEntries = null;
+    private static List<BustupParamAssistEntry> _finalEntries = null;
+
+    public static void SetOriginalList(List<BustupParamAssistEntry> originalEntries)
+    {
+        _originalEntries = new List<BustupParamAssistEntry>(originalEntries);
+        _finalEntries = new List<BustupParamAssistEntry>(originalEntries);
+    }
+
+    public static List<BustupParamAssistEntry> GetFinalList()
+    {
+        return _finalEntries?.ToList();
+    }
+
+    public static List<BustupParamAssistEntry> MergeIntoFinal(List<BustupParamAssistEntry> newList)
+    {
+        if (_finalEntries == null)
+        {
+            throw new InvalidOperationException("Original list must be set using SetOriginalList() first");
+        }
+
+        if (newList == null || newList.Count == 0)
+            return _finalEntries.ToList();
+
+        // Handle duplicates in finalEntries
+        var finalDict = _finalEntries
+            .GroupBy(e => (e.MajorID, e.MinorID))
+            .ToDictionary(g => g.Key, g => g.Last());
+
+        // Handle duplicates in originalEntries  
+        var originalDict = _originalEntries?
+            .GroupBy(e => (e.MajorID, e.MinorID))
+            .ToDictionary(g => g.Key, g => g.Last())
+            ?? new Dictionary<(ushort, ushort), BustupParamAssistEntry>();
+
+        int modifiedCount = 0;
+        int newCount = 0;
+        var skippedEntries = new List<string>();
+
+        // Group by key to handle duplicates in newList
+        var groupedNewEntries = newList
+            .GroupBy(e => (e.MajorID, e.MinorID))
+            .ToDictionary(g => g.Key, g => g.Last());
+
+        foreach (var kvp in groupedNewEntries)
+        {
+            var key = kvp.Key;
+            var newEntry = kvp.Value;
+
+            if (originalDict.TryGetValue(key, out var originalEntry))
+            {
+                if (newEntry.ValuesEqual(originalEntry))
+                {
+                    skippedEntries.Add($"({newEntry.MajorID}, {newEntry.MinorID})");
+                    continue;
+                }
+            }
+
+            bool isUpdate = finalDict.ContainsKey(key);
+
+            if (isUpdate)
+            {
+                modifiedCount++;
+            }
+            else
+            {
+                newCount++;
+            }
+
+            finalDict[key] = newEntry;
+        }
+
+        _finalEntries = finalDict.Values
+            .OrderBy(entry => entry.MajorID)
+            .ThenBy(entry => entry.MinorID)
+            .ToList();
+
+        return _finalEntries.ToList();
+    }
+
+    public static List<BustupParamAssistEntry> ReadBustupParamAssistFile(string filePath, bool setAsOriginal = false)
+    {
+        var entries = ReadBustupParamAssistFileInternal(filePath);
+
+        if (setAsOriginal && entries != null)
+        {
+            SetOriginalList(entries);
+        }
+
+        return entries;
+    }
+
+    private static List<BustupParamAssistEntry> ReadBustupParamAssistFileInternal(string filePath)
     {
         var entries = new List<BustupParamAssistEntry>();
 
@@ -61,7 +168,6 @@ public static class BustupParamAssist
         {
             foreach (var entry in entries)
             {
-                // Write all values in Big Endian format
                 WriteUInt16BigEndian(writer, entry.MajorID);
                 WriteUInt16BigEndian(writer, entry.MinorID);
                 WriteFloatBigEndian(writer, entry.BasePos_X);
@@ -73,55 +179,6 @@ public static class BustupParamAssist
                 WriteUInt32BigEndian(writer, entry.Flags);
             }
         }
-    }
-
-    public static List<BustupParamAssistEntry> MergeEntries(List<BustupParamAssistEntry> baseList, List<BustupParamAssistEntry> overrideList)
-    {
-        var mergedDict = new Dictionary<(ushort, ushort), BustupParamAssistEntry>();
-        var baseKeys = new HashSet<(ushort, ushort)>();
-
-        foreach (var entry in baseList)
-        {
-            var key = (entry.MajorID, entry.MinorID);
-            baseKeys.Add(key);
-            mergedDict[key] = entry;
-        }
-
-        var newEntries = new List<string>();
-        foreach (var overrideEntry in overrideList)
-        {
-            var key = (overrideEntry.MajorID, overrideEntry.MinorID);
-            bool isNewEntry = !baseKeys.Contains(key);
-
-            if (isNewEntry)
-            {
-                newEntries.Add($"({overrideEntry.MajorID}, {overrideEntry.MinorID})");
-            }
-
-            mergedDict[key] = overrideEntry; // Add or overwrite
-        }
-
-        // Print new entries that didn't exist in base list
-        /*if (newEntries.Count > 0)
-        {
-            Console.WriteLine($"BustupParamAssist: {newEntries.Count} new entries added from override list:");
-            foreach (var newEntry in newEntries)
-            {
-                Console.WriteLine($"  - {newEntry}");
-            }
-        }
-        else
-        {
-            Console.WriteLine("BustupParamAssist: No new entries added from override list (only existing entries were updated)");
-        }*/
-
-        // Reorder entries: MajorID -> MinorID
-        var mergedList = mergedDict.Values
-            .OrderBy(entry => entry.MajorID)
-            .ThenBy(entry => entry.MinorID)
-            .ToList();
-
-        return mergedList;
     }
 
     private static ushort ReadUInt16BigEndian(BinaryReader reader)

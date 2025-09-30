@@ -46,9 +46,6 @@ namespace p5rpc.bustupparam.merging
 
         private List<string> _probingPaths = new();
 
-        private List<BustupEntry> _bustupEntriesFinal = new();
-        private List<BustupParamAssistEntry> _bustupParamAssistEntriesFinal = new();
-
         public Mod(ModContext context)
         {
             _modLoader = context.ModLoader;
@@ -66,8 +63,11 @@ namespace p5rpc.bustupparam.merging
 
             var originalFilePath = Path.Combine(_modLoader.GetDirectoryForModId(_modConfig.ModId), "Original");
 
-            _bustupEntriesFinal = BustupParam.ReadBustupFile(Path.Combine(originalFilePath, "BUSTUP_PARAM_Original.DAT"));
-            _bustupParamAssistEntriesFinal = BustupParamAssist.ReadBustupParamAssistFile(Path.Combine(originalFilePath, "MSGASSISTBUSTUPPARAM_Original.DAT"));
+            var originalBustupEntries = BustupParam.ReadBustupFile(Path.Combine(originalFilePath, "BUSTUP_PARAM_Original.DAT"));
+            var originalBustupAssistEntries = BustupParamAssist.ReadBustupParamAssistFile(Path.Combine(originalFilePath, "MSGASSISTBUSTUPPARAM_Original.DAT"));
+
+            BustupParam.SetOriginalList(originalBustupEntries);
+            BustupParamAssist.SetOriginalList(originalBustupAssistEntries);
 
             _modLoader.GetController<ICriFsRedirectorApi>().TryGetTarget(out _criFsApi!);
 
@@ -89,13 +89,13 @@ namespace p5rpc.bustupparam.merging
                     if (Path.GetFileName(file).ToUpper() == "BUSTUP_PARAM.DAT")
                     {
                         var newEntries = BustupParam.ReadBustupFile(file);
-                        _bustupEntriesFinal = BustupParam.MergeEntries(_bustupEntriesFinal, newEntries);
+                        BustupParam.MergeIntoFinal(newEntries);
                         Log($"[BUSTUP_PARAM.DAT] Merged entries from mod {modname}");
                     }
                     else if (Path.GetFileName(file).ToUpper() == "MSGASSISTBUSTUPPARAM.DAT")
                     {
                         var newEntries = BustupParamAssist.ReadBustupParamAssistFile(file);
-                        _bustupParamAssistEntriesFinal = BustupParamAssist.MergeEntries(_bustupParamAssistEntriesFinal, newEntries);
+                        BustupParamAssist.MergeIntoFinal(newEntries);
                         Log($"[MSGASSISTBUSTUPPARAM.DAT] Merged entries from mod {modname}");
                     }
                 }
@@ -110,11 +110,14 @@ namespace p5rpc.bustupparam.merging
             var bustupOutputPath = Path.Combine(outputPath, "BUSTUP", "DATA", "BUSTUP_PARAM.DAT");
             var bustupAssistOutputPath = Path.Combine(outputPath, "FONT", "ASSIST", "BUSTUP", "MSGASSISTBUSTUPPARAM.DAT");
 
-            BustupParam.WriteBustupFile(bustupOutputPath, _bustupEntriesFinal);
-            BustupParamAssist.WriteBustupParamAssistFile(bustupAssistOutputPath, _bustupParamAssistEntriesFinal);
+            var finalBustupEntries = BustupParam.GetFinalList();
+            var finalBustupAssistEntries = BustupParamAssist.GetFinalList();
 
-            LogDebug($"Wrote merged BUSTUP_PARAM.DAT with {_bustupEntriesFinal.Count} entries to {bustupOutputPath}");
-            LogDebug($"Wrote merged MSGASSISTBUSTUPPARAM.DAT with {_bustupParamAssistEntriesFinal.Count} entries to {bustupAssistOutputPath}");
+            BustupParam.WriteBustupFile(bustupOutputPath, finalBustupEntries);
+            BustupParamAssist.WriteBustupParamAssistFile(bustupAssistOutputPath, finalBustupAssistEntries);
+
+            LogDebug($"Wrote merged BUSTUP_PARAM.DAT with {finalBustupEntries.Count} entries to {bustupOutputPath}");
+            LogDebug($"Wrote merged MSGASSISTBUSTUPPARAM.DAT with {finalBustupAssistEntries.Count} entries to {bustupAssistOutputPath}");
         }
 
         public void BindDummies()
@@ -132,13 +135,11 @@ namespace p5rpc.bustupparam.merging
         private void CheckBustupParamInMods(ICriFsRedirectorApi.BindContext context)
         {
             var loadedMods = _modLoader.GetActiveMods();
-
             _probingPaths = _criFsApi.GetProbingPaths().ToList();
 
             foreach (var modconfig in loadedMods)
             {
                 var modsPath = _modLoader.GetDirectoryForModId(modconfig.Generic.ModId);
-
                 CheckForMerge(modsPath, modconfig.Generic.ModName);
             }
 

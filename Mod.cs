@@ -44,6 +44,8 @@ namespace p5rpc.bustupparam.merging
 
         private ICriFsRedirectorApi _criFsApi = null!;
 
+        private List<string> _probingPaths = new();
+
         private List<BustupEntry> _bustupEntriesFinal = new();
         private List<BustupParamAssistEntry> _bustupParamAssistEntriesFinal = new();
 
@@ -69,42 +71,39 @@ namespace p5rpc.bustupparam.merging
 
             _modLoader.GetController<ICriFsRedirectorApi>().TryGetTarget(out _criFsApi!);
 
-
-            _modLoader.ModLoading += ModLoading;
-            _modLoader.OnModLoaderInitialized += OnLoaderInitialized;
-
             BindDummies();
-        }
 
-        private void ModLoading(IModV1 mod, IModConfigV1 modConfig)
-        {
-            var modsPath = _modLoader.GetDirectoryForModId(modConfig.ModId);
-
-            CheckForMerge(modsPath, modConfig.ModName);
+            _criFsApi.AddBindCallback(CheckBustupParamInMods);
         }
 
         private void CheckForMerge(string modsPath, string modname = "")
         {
-            foreach (var file in Directory.EnumerateFiles(modsPath, "*.DAT", SearchOption.AllDirectories))
+            foreach (var path in _probingPaths)
             {
-                if (Path.GetFileName(file).ToUpper() == "BUSTUP_PARAM.DAT")
+                string fullPath = Path.Combine(modsPath, path);
+
+                if (!Directory.Exists(fullPath)) continue;
+
+                foreach (var file in Directory.EnumerateFiles(fullPath, "*.DAT", SearchOption.AllDirectories))
                 {
-                    var newEntries = BustupParam.ReadBustupFile(file);
-                    _bustupEntriesFinal = BustupParam.MergeEntries(_bustupEntriesFinal, newEntries);
-                    Log($"[BUSTUP_PARAM.DAT] Merged entries from mod {modname}");
-                }
-                else if (Path.GetFileName(file).ToUpper() == "MSGASSISTBUSTUPPARAM.DAT")
-                {
-                    var newEntries = BustupParamAssist.ReadBustupParamAssistFile(file);
-                    _bustupParamAssistEntriesFinal = BustupParamAssist.MergeEntries(_bustupParamAssistEntriesFinal, newEntries);
-                    Log($"[MSGASSISTBUSTUPPARAM.DAT] Merged entries from mod {modname}");
+                    if (Path.GetFileName(file).ToUpper() == "BUSTUP_PARAM.DAT")
+                    {
+                        var newEntries = BustupParam.ReadBustupFile(file);
+                        _bustupEntriesFinal = BustupParam.MergeEntries(_bustupEntriesFinal, newEntries);
+                        Log($"[BUSTUP_PARAM.DAT] Merged entries from mod {modname}");
+                    }
+                    else if (Path.GetFileName(file).ToUpper() == "MSGASSISTBUSTUPPARAM.DAT")
+                    {
+                        var newEntries = BustupParamAssist.ReadBustupParamAssistFile(file);
+                        _bustupParamAssistEntriesFinal = BustupParamAssist.MergeEntries(_bustupParamAssistEntriesFinal, newEntries);
+                        Log($"[MSGASSISTBUSTUPPARAM.DAT] Merged entries from mod {modname}");
+                    }
                 }
             }
         }
 
-        private void OnLoaderInitialized()
+        private void OutputFinalFiles()
         {
-            // todo build file and bind
             var ownPath = _modLoader.GetDirectoryForModId(_modConfig.ModId);
             var outputPath = Path.Combine(ownPath, "Output");
 
@@ -113,9 +112,6 @@ namespace p5rpc.bustupparam.merging
 
             BustupParam.WriteBustupFile(bustupOutputPath, _bustupEntriesFinal);
             BustupParamAssist.WriteBustupParamAssistFile(bustupAssistOutputPath, _bustupParamAssistEntriesFinal);
-
-            // _criFsApi.AddBind(bustupOutputPath, @"BUSTUP\DATA\BUSTUP_PARAM.DAT", _modConfig.ModId);
-            // _criFsApi.AddBind(bustupAssistOutputPath, @"FONT\ASSIST\BUSTUP\MSGASSISTBUSTUPPARAM.DAT", _modConfig.ModId);
 
             LogDebug($"Wrote merged BUSTUP_PARAM.DAT with {_bustupEntriesFinal.Count} entries to {bustupOutputPath}");
             LogDebug($"Wrote merged MSGASSISTBUSTUPPARAM.DAT with {_bustupParamAssistEntriesFinal.Count} entries to {bustupAssistOutputPath}");
@@ -131,6 +127,22 @@ namespace p5rpc.bustupparam.merging
 
             _criFsApi.AddBind(bustupOutputPath, @"BUSTUP\DATA\BUSTUP_PARAM.DAT", _modConfig.ModId);
             _criFsApi.AddBind(bustupAssistOutputPath, @"FONT\ASSIST\BUSTUP\MSGASSISTBUSTUPPARAM.DAT", _modConfig.ModId);
+        }
+
+        private void CheckBustupParamInMods(ICriFsRedirectorApi.BindContext context)
+        {
+            var loadedMods = _modLoader.GetActiveMods();
+
+            _probingPaths = _criFsApi.GetProbingPaths().ToList();
+
+            foreach (var modconfig in loadedMods)
+            {
+                var modsPath = _modLoader.GetDirectoryForModId(modconfig.Generic.ModId);
+
+                CheckForMerge(modsPath, modconfig.Generic.ModName);
+            }
+
+            OutputFinalFiles();
         }
 
         #region Standard Overrides

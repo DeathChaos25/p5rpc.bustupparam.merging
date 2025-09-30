@@ -1,0 +1,63 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <OutputPath>$(RELOADEDIIMODS)/p5rpc.bustupparam.merging</OutputPath>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- IL Trimming Support for Framework Dependent Apps. Unofficial.
+         If you set this to true, trimming will be enabled when you publish the mod.
+         Test trimming with: `BuildLinked.ps1` in PowerShell. -->
+    <ReloadedILLink>false</ReloadedILLink>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ReloadedLinkRoots Include="p5rpc.bustupparam.merging" />
+    <!-- Add assemblies to be trimmed. You might need to add their dependencies too!  -->
+    <!-- <ReloadedLinkAssemblies Include="Reloaded.Memory" /> -->
+  </ItemGroup>
+
+  <Import Project="Reloaded.Trimming.targets" />
+  <Import Project="Reloaded.Checks.targets" />
+
+  <ItemGroup>
+    <None Remove="ModConfig.json" />
+    <None Remove="Publish.ps1" />
+    <None Remove="BuildLinked.ps1" />
+    <None Remove="Reloaded.Trimming.targets" />
+    <None Remove="Reloaded.Checks.targets" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="ModConfig.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Update="Original\BUSTUP_PARAM_Original.DAT">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Original\MSGASSISTBUSTUPPARAM_Original.DAT">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Output\BUSTUP\DATA\BUSTUP_PARAM.DAT">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Output\FONT\ASSIST\BUSTUP\MSGASSISTBUSTUPPARAM.DAT">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Preview.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CriFs.V2.Hook.Interfaces" Version="1.0.0" />
+    <PackageReference Include="Microsoft.NET.ILLink.Tasks" Version="8.0.8" />
+    <PackageReference Include="Reloaded.Mod.Interfaces" Version="2.4.0" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+</Project>

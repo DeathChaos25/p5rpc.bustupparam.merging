@@ -2,8 +2,8 @@
   "ModId": "p5rpc.bustupparam.merging",
   "ModName": "(Bustup \u0026 Assist) PARAM Merging",
   "ModAuthor": "DeathChaos",
-  "ModVersion": "0.3.9",
-  "ModDescription": "Dedicated Merging for BUSTUP_PARAM and MSGASSISTBUSTUPPARAM",
+  "ModVersion": "1.0.0",
+  "ModDescription": "Dedicated Merging for BUSTUP_PARAM and MSGASSISTBUSTUPPARAM\n\nThis merging is automatic for all enabled mods if this mod is enabled.",
   "ModDll": "p5rpc.bustupparam.merging.dll",
   "ModIcon": "Preview.png",
   "ModR2RManagedDll32": "x86/p5rpc.bustupparam.merging.dll",
@@ -21,6 +21,37 @@
       "RepositoryName": "p5rpc.bustupparam.merging",
       "UseReleaseTag": true,
       "AssetFileName": "Mod.zip"
+    },
+    "GitHubDependencies": {
+      "IdToConfigMap": {
+        "crifs.v2.hook": {
+          "Config": {
+            "UserName": "Sewer56",
+            "RepositoryName": "CriFs.V2.Hook.ReloadedII",
+            "UseReleaseTag": false,
+            "AssetFileName": "Mod.zip"
+          },
+          "ReleaseMetadataName": "CriFs.V2.Hook.ReleaseMetadata.json"
+        },
+        "Reloaded.Memory.SigScan.ReloadedII": {
+          "Config": {
+            "UserName": "Reloaded-Project",
+            "RepositoryName": "Reloaded.Memory.SigScan",
+            "UseReleaseTag": false,
+            "AssetFileName": "Mod.zip"
+          },
+          "ReleaseMetadataName": "Reloaded.Memory.SigScan.ReloadedII.ReleaseMetadata.json"
+        },
+        "reloaded.sharedlib.hooks": {
+          "Config": {
+            "UserName": "Sewer56",
+            "RepositoryName": "Reloaded.SharedLib.Hooks.ReloadedII",
+            "UseReleaseTag": true,
+            "AssetFileName": "reloaded.sharedlib.hooks.zip"
+          },
+          "ReleaseMetadataName": "Sewer56.Update.ReleaseMetadata.json"
+        }
+      }
     }
   },
   "IsUniversalMod": false,
